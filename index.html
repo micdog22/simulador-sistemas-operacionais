@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulador de Sistemas Operacionais: escalonamento, paginação, deadlock e memória</title>
+  <meta name="description" content="Simule escalonamento de CPU com gráfico de Gantt, substituição de páginas com a anomalia de Belady, algoritmo do banqueiro, grafo de alocação de recursos e alocação de memória first, best, worst e next fit.">
+  <meta name="theme-color" content="#c2410c">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Simulador de Sistemas Operacionais</h1>
+    <p class="lead">Escalonamento de CPU, substituição de páginas, deadlock e alocação de memória, com cada decisão explicada e os números das provas conferidos.</p>
+  </header>
+
+  <main>
+    <div class="tabbar" role="tablist" aria-label="Módulos do simulador">
+      <button type="button" role="tab" id="tab-cpu" aria-controls="panel-cpu" aria-selected="true">Escalonamento</button>
+      <button type="button" role="tab" id="tab-pag" aria-controls="panel-pag" aria-selected="false" tabindex="-1">Paginação</button>
+      <button type="button" role="tab" id="tab-dead" aria-controls="panel-dead" aria-selected="false" tabindex="-1">Deadlock</button>
+      <button type="button" role="tab" id="tab-mem" aria-controls="panel-mem" aria-selected="false" tabindex="-1">Memória</button>
+    </div>
+
+    <!-- Escalonamento -->
+    <section id="panel-cpu" role="tabpanel" aria-labelledby="tab-cpu">
+      <div class="card">
+        <h2>Processos</h2>
+        <p class="muted small">Tempos inteiros. Na prioridade, número menor é mais prioritário. Empates vão para quem chegou primeiro e, depois, para quem está mais acima na lista.</p>
+        <div class="table-wrap">
+          <table class="edit" id="proc-table">
+            <thead><tr><th scope="col">Processo</th><th scope="col">Chegada</th><th scope="col">Duração</th><th scope="col">Prioridade</th><th scope="col"><span class="sr-only">Remover</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn" id="proc-add">Adicionar processo</button>
+          <span class="muted small">Exemplos:</span>
+          <button type="button" class="btn small" data-cpu-example="0">Três processos (24, 3, 3)</button>
+          <button type="button" class="btn small" data-cpu-example="1">Chegadas diferentes</button>
+          <button type="button" class="btn small" data-cpu-example="2">Com prioridades</button>
+          <button type="button" class="btn small" data-cpu-example="3">Round Robin</button>
+        </div>
+        <div class="options">
+          <label>Algoritmo
+            <select id="cpu-alg">
+              <option value="fcfs">FCFS (primeiro a chegar)</option>
+              <option value="sjf">SJF não preemptivo</option>
+              <option value="srtf">SRTF (SJF preemptivo)</option>
+              <option value="prio">Prioridade não preemptiva</option>
+              <option value="prioP">Prioridade preemptiva</option>
+              <option value="rr">Round Robin</option>
+            </select>
+          </label>
+          <label id="quantum-wrap">Quantum
+            <input type="number" id="cpu-quantum" min="1" max="50" value="2" inputmode="numeric">
+          </label>
+        </div>
+        <p class="error-line" id="cpu-error" role="alert" hidden></p>
+      </div>
+      <div class="card">
+        <h2>Resultado</h2>
+        <p class="sr-only" id="cpu-live" aria-live="polite"></p>
+        <div id="cpu-result"></div>
+      </div>
+      <div class="card">
+        <h2>Comparação entre os algoritmos</h2>
+        <p class="muted small">Mesma entrada em todos (o Round Robin usa o quantum escolhido). Em destaque, o menor valor de cada coluna.</p>
+        <div id="cpu-compare"></div>
+      </div>
+    </section>
+
+    <!-- Paginação -->
+    <section id="panel-pag" role="tabpanel" aria-labelledby="tab-pag" hidden>
+      <div class="card">
+        <h2>Substituição de páginas</h2>
+        <label for="pag-refs">Sequência de referências (páginas)</label>
+        <input type="text" id="pag-refs" spellcheck="false" autocomplete="off">
+        <div class="options">
+          <label>Quadros
+            <input type="number" id="pag-frames" min="1" max="12" value="3" inputmode="numeric">
+          </label>
+          <label>Algoritmo
+            <select id="pag-alg">
+              <option value="fifo">FIFO</option>
+              <option value="lru">LRU (menos recentemente usada)</option>
+              <option value="opt">OPT (ótimo)</option>
+              <option value="clock">Relógio (segunda chance)</option>
+            </select>
+          </label>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn small" id="pag-example">Exemplo clássico (20 referências)</button>
+          <button type="button" class="btn small" id="pag-belady">Demonstrar a anomalia de Belady</button>
+        </div>
+        <p class="error-line" id="pag-error" role="alert" hidden></p>
+      </div>
+      <div class="card">
+        <h2>Quadros passo a passo</h2>
+        <div class="player" role="group" aria-label="Controle da animação">
+          <button type="button" class="btn small" data-step="first" aria-label="Voltar ao início">|◀</button>
+          <button type="button" class="btn small" data-step="prev" aria-label="Passo anterior">◀</button>
+          <button type="button" class="btn small primary" id="pag-play">Reproduzir</button>
+          <button type="button" class="btn small" data-step="next" aria-label="Próximo passo">▶</button>
+          <button type="button" class="btn small" data-step="last" aria-label="Ir para o fim">▶|</button>
+          <label class="inline">Passo <input type="range" id="pag-pos" min="0" max="0" value="0"></label>
+          <label class="inline">Velocidade
+            <select id="pag-speed">
+              <option value="1200">lenta</option>
+              <option value="700" selected>normal</option>
+              <option value="300">rápida</option>
+            </select>
+          </label>
+        </div>
+        <p class="step-note" id="pag-note" aria-live="polite"></p>
+        <div class="table-wrap" id="pag-table"></div>
+        <div id="pag-summary"></div>
+      </div>
+      <div class="card">
+        <h2>Faltas conforme o número de quadros</h2>
+        <p class="muted small">Com mais quadros, o esperado é ter menos faltas. FIFO pode quebrar essa regra (anomalia de Belady); LRU e OPT nunca quebram, porque são algoritmos de pilha.</p>
+        <div id="pag-chart" class="chart"></div>
+        <div id="pag-belady-note"></div>
+        <details class="sub">
+          <summary>Ver os números em tabela</summary>
+          <div class="table-wrap" id="pag-curve-table"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- Deadlock -->
+    <section id="panel-dead" role="tabpanel" aria-labelledby="tab-dead" hidden>
+      <div class="card">
+        <h2>Algoritmo do banqueiro</h2>
+        <div class="options">
+          <label>Processos <select id="bank-n"></select></label>
+          <label>Tipos de recurso <select id="bank-m"></select></label>
+          <label class="check"><input type="checkbox" id="bank-total"> Informar o total de cada recurso (em vez do disponível)</label>
+          <button type="button" class="btn small" id="bank-example">Exemplo clássico (5 processos, A B C)</button>
+        </div>
+        <div class="bank-grid" id="bank-inputs"></div>
+        <p class="error-line" id="bank-error" role="alert" hidden></p>
+        <p class="sr-only" id="bank-live" aria-live="polite"></p>
+        <div id="bank-result"></div>
+      </div>
+      <div class="card">
+        <h2>Simular um pedido</h2>
+        <div class="options">
+          <label>Processo <select id="req-proc"></select></label>
+          <div id="req-inputs" class="req-inputs"></div>
+          <button type="button" class="btn" id="req-go">Simular pedido</button>
+        </div>
+        <div id="req-result" aria-live="polite"></div>
+      </div>
+      <div class="card">
+        <h2>Grafo de alocação de recursos</h2>
+        <p class="muted small">Uma aresta por linha: <code>P1 -&gt; R1</code> (P1 pede R1), <code>R1 -&gt; P2</code> (R1 está com P2), <code>R2 -&gt; P3 x2</code> (duas instâncias) e <code>R2: 3</code> (R2 tem 3 instâncias). Linhas com <code>#</code> são comentários.</p>
+        <div class="rag-layout">
+          <div>
+            <label for="rag-text">Arestas</label>
+            <textarea id="rag-text" spellcheck="false" rows="9"></textarea>
+            <div class="row-actions">
+              <button type="button" class="btn small" data-rag="0">Deadlock (instância única)</button>
+              <button type="button" class="btn small" data-rag="1">Ciclo sem deadlock</button>
+              <button type="button" class="btn small" data-rag="2">Sem ciclo</button>
+            </div>
+          </div>
+          <div id="rag-svg" class="chart"></div>
+        </div>
+        <p class="error-line" id="rag-error" role="alert" hidden></p>
+        <p class="sr-only" id="rag-live" aria-live="polite"></p>
+        <div id="rag-result"></div>
+      </div>
+    </section>
+
+    <!-- Memória -->
+    <section id="panel-mem" role="tabpanel" aria-labelledby="tab-mem" hidden>
+      <div class="card">
+        <h2>Alocação contígua de memória</h2>
+        <div class="segmented" role="radiogroup" aria-label="Memória inicial">
+          <label><input type="radio" name="mem-mode" value="parts" checked> Lista de partições (lacunas)</label>
+          <label><input type="radio" name="mem-mode" value="total"> Memória contínua de tamanho total</label>
+        </div>
+        <div class="options">
+          <label id="mem-parts-wrap">Partições
+            <input type="text" id="mem-parts" spellcheck="false" autocomplete="off">
+          </label>
+          <label id="mem-total-wrap" hidden>Tamanho total
+            <input type="number" id="mem-total" min="1" value="1000" inputmode="numeric">
+          </label>
+          <label>Algoritmo
+            <select id="mem-alg">
+              <option value="first">First fit (primeira que couber)</option>
+              <option value="best">Best fit (a que sobrar menos)</option>
+              <option value="worst">Worst fit (a maior lacuna)</option>
+              <option value="next">Next fit (continua de onde parou)</option>
+            </select>
+          </label>
+          <label class="check" id="mem-fixed-wrap"><input type="checkbox" id="mem-fixed"> Partições fixas (não divide a lacuna)</label>
+        </div>
+        <label for="mem-ops">Operações (uma por linha: <code>P1 212</code> aloca, <code>liberar P1</code> libera)</label>
+        <textarea id="mem-ops" spellcheck="false" rows="6"></textarea>
+        <div class="row-actions">
+          <button type="button" class="btn small" data-mem="0">Exemplo do livro (212, 417, 112, 426)</button>
+          <button type="button" class="btn small" data-mem="1">Com liberações (fragmentação externa)</button>
+        </div>
+        <p class="error-line" id="mem-error" role="alert" hidden></p>
+      </div>
+      <div class="card">
+        <h2>Memória passo a passo</h2>
+        <label class="inline">Depois da operação <input type="range" id="mem-pos" min="0" max="0" value="0"></label>
+        <p class="step-note" id="mem-note" aria-live="polite"></p>
+        <div id="mem-bar"></div>
+        <div id="mem-stats"></div>
+        <details class="sub">
+          <summary>Todas as operações</summary>
+          <ol id="mem-steps"></ol>
+        </details>
+      </div>
+      <div class="card">
+        <h2>Comparação dos quatro algoritmos</h2>
+        <div id="mem-compare"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Tudo roda no seu navegador. Código aberto no <a href="https://github.com/micdog22/simulador-sistemas-operacionais">GitHub</a> · Licença MIT</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "simulador-sistemas-operacionais",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simulador de escalonamento de CPU, substituição de páginas, deadlock (banqueiro e grafo de recursos) e alocação de memória.",
+  "type": "module",
+  "scripts": { "test": "node --test" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/micdog22/simulador-sistemas-operacionais.git" },
+  "homepage": "https://micdog22.github.io/simulador-sistemas-operacionais/"
+}
